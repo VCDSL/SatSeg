@@ -39,9 +39,7 @@ def create_new_model(
     return model
 
 
-def train_model(
-    train_set: Dataset, val_set: Dataset, arch: str, params: dict
-) -> nn.Module:
+def train_model(train_set: Dataset, val_set: Dataset, arch: str) -> nn.Module:
     dataloaders = {
         "train": create_dataloader(train_set, True),
         "val": create_dataloader(val_set, False),
