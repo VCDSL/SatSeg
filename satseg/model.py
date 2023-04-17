@@ -83,3 +83,7 @@ def load_model(model_path: str) -> nn.Module:
     model.to(device)
     
     return model
+        
+
+def save_model(model: nn.Module, model_path: str):
+    torch.save(model, model_path)
