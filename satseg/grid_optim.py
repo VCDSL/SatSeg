@@ -114,6 +114,7 @@ def main():
     print(max_config, max_score)
 
 
-t = time()
-main()
-print(f"Search took {time() - t} seconds.")
+if __name__ == "__main__":
+    t = time()
+    main()
+    print(f"Search took {time() - t} seconds.")
