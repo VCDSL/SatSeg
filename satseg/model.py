@@ -1,8 +1,10 @@
 import os
+from tqdm import tqdm
+from typing import Optional
+
 import numpy as np
 import segmentation_models_pytorch as smp
 import torch
-from tqdm import tqdm
 from torch.utils.data import Dataset
 from torch import nn, optim
 from torchgeo.models import resnet50, ResNet50_Weights
@@ -11,19 +13,22 @@ from satseg.dataset import create_dataloader
 from satseg.utils import device, jaccard_index
 
 
-def create_model(arch: str, channels: int) -> nn.Module:
+def create_new_model(
+    arch: str,
+    channels: int,
+    weights: Optional[ResNet50_Weights] = ResNet50_Weights.SENTINEL2_ALL_MOCO
+) -> nn.Module:
     if arch == "unet":
-        model = smp.Unet(
-            encoder_name="resnet50",
-            in_channels=channels,
-            classes=1,
-        )
-        model_resnet = resnet50(ResNet50_Weights.SENTINEL2_ALL_MOCO)
-        del model_resnet.fc
-        del model_resnet.avgpool
+        model = smp.Unet(encoder_name="resnet50", in_channels=channels, classes=1)
+        
+        if weights:
+            model_resnet = resnet50(weights)
+            del model_resnet.fc
+            del model_resnet.avgpool
 
-        for layer1, layer2 in zip(list(model.encoder.children())[1:], list(model_resnet.children())[1:]):
-            layer1.load_state_dict(layer2.state_dict())
+            for layer1, layer2 in zip(list(model.encoder.children())[1:], list(model_resnet.children())[1:]):
+                layer1.load_state_dict(layer2.state_dict())
+                
         model.segmentation_head[2].activation = nn.Sigmoid()
 
     model.to(device)
@@ -38,7 +43,7 @@ def train_model(train_set: Dataset, val_set: Dataset, arch: str, params: dict) -
         'val': create_dataloader(val_set, False)
     }
     
-    model = create_model(arch, val_set[0][0].shape[0])
+    model = create_new_model(arch, val_set[0][0].shape[0])
     
     optimizer = optim.Adam(model.parameters())
     criterion = nn.BCELoss()
