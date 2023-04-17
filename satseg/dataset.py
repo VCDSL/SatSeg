@@ -3,7 +3,7 @@ import random
 from glob import glob
 from time import time
 import numpy as np
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from torch.utils.data import Dataset, DataLoader
 
 from satseg.geo_tools import generate_mask, tif2np
@@ -48,7 +48,7 @@ def create_datasets(
     image_size: int = 256,
     stride: int = None,
     train_pct: int = None,
-):
+) -> Tuple[CustomDataset, CustomDataset]:
     assert len(tif_paths) == len(mask_paths)
 
     if not stride:
