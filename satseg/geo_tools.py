@@ -58,7 +58,7 @@ def generate_mask(raster_path, shape_path):
 
     mask = rasterize(shapes=poly_shp, out_shape=im_size)
 
-    mask = mask.astype("uint16")
+    mask = mask.astype("int16")
 
     bin_mask_meta = src.meta.copy()
     bin_mask_meta.update({"count": 1})
@@ -68,7 +68,7 @@ def generate_mask(raster_path, shape_path):
 
 def tif2np(tif_path: str) -> np.ndarray:
     ds = rasterio.open(tif_path)
-    return ds.read()
+    return ds.read().astype(np.int16)
 
 
 def get_tif_bounds(tif_path: str, target_crs: int = None):

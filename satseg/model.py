@@ -18,13 +18,13 @@ def create_new_model(
     channels: int,
     weights: Optional[ResNet50_Weights] = ResNet50_Weights.SENTINEL2_ALL_MOCO,
 ) -> nn.Module:
-    if arch == "unet":
+    if arch.lower() == "unet":
         model = smp.Unet(encoder_name="resnet50", in_channels=channels, classes=1)
 
         if weights:
             model_resnet = resnet50(weights)
             del model_resnet.fc
-            del model_resnet.avgpool
+            del model_resnet.global_pool
 
             for layer1, layer2 in zip(
                 list(model.encoder.children())[1:], list(model_resnet.children())[1:]
@@ -39,7 +39,9 @@ def create_new_model(
     return model
 
 
-def train_model(train_set: Dataset, val_set: Dataset, arch: str) -> nn.Module:
+def train_model(
+    train_set: Dataset, val_set: Dataset, arch: str, epochs: int = 10
+) -> nn.Module:
     dataloaders = {
         "train": create_dataloader(train_set, True),
         "val": create_dataloader(val_set, False),
@@ -52,22 +54,27 @@ def train_model(train_set: Dataset, val_set: Dataset, arch: str) -> nn.Module:
 
     metrics = {"train": {"loss": [], "iou": []}, "val": {"loss": [], "iou": []}}
 
-    for phase in dataloaders:
-        for img, mask in dataloaders[phase]:
-            img = img.to(device)
-            mask = mask.to(device)
+    print("Training started...")
+    for ep in range(epochs):
+        print(f"Epoch {ep}")
+        for phase in dataloaders:
+            for img, mask in tqdm(
+                dataloaders[phase], "Training" if phase == "train" else "Validating"
+            ):
+                img = img.to(device)
+                mask = mask.to(device)
 
-            out = model(img)
-            loss = criterion(out, mask)
-            iou = jaccard_index(out, mask)
+                out = model(img)
+                loss = criterion(out, mask)
 
-            metrics[phase]["loss"].append(loss)
-            metrics[phase]["iou"].append(iou)
+                if phase == "train":
+                    optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()
 
-            if phase == "train":
-                optimizer.zero_grad()
-                optimizer.step()
-                loss.backward()
+                iou = jaccard_index(out, mask)
+                metrics[phase]["loss"].append(loss.item())
+                metrics[phase]["iou"].append(iou.item())
 
     return model, metrics
 
@@ -91,3 +98,10 @@ def load_model(model_path: str) -> nn.Module:
 
 def save_model(model: nn.Module, model_path: str):
     torch.save(model, model_path)
+
+
+def update_model_data(
+    model_data_path: str, model_name: str, arch: str, model_path: str
+):
+    with open(model_data_path, "a") as fp:
+        fp.write(f"{model_name}, {arch}, {model_path}\n")

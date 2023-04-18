@@ -3,6 +3,7 @@ import random
 from glob import glob
 from time import time
 import numpy as np
+import torchvision.transforms.functional as TF
 from typing import List, Optional, Tuple
 from torch.utils.data import Dataset, DataLoader
 
@@ -21,10 +22,10 @@ class CustomDataset(Dataset):
 
     def __getitem__(self, idx):
         index = self.indices[idx]
-        image = np.load(self.image_paths[index])
+        image = np.load(self.image_paths[index]).transpose(1, 2, 0)
         mask = np.load(self.mask_paths[index])
 
-        return image, mask
+        return TF.to_tensor(image).float(), TF.to_tensor(mask).float()
 
 
 class InferenceDataset(Dataset):
@@ -36,9 +37,9 @@ class InferenceDataset(Dataset):
         return len(self.image_paths)
 
     def __getitem__(self, index):
-        image = np.load(self.image_paths[index])
+        image = np.load(self.image_paths[index]).transpose(1, 2, 0)
 
-        return image, self.image_paths[index]
+        return TF.to_tensor(image).float(), self.image_paths[index]
 
 
 def create_datasets(
@@ -49,6 +50,7 @@ def create_datasets(
     stride: int = None,
     train_pct: int = None,
 ) -> Tuple[CustomDataset, CustomDataset]:
+    print("Creating dataset...")
     assert len(tif_paths) == len(mask_paths)
 
     if not stride:
@@ -58,13 +60,15 @@ def create_datasets(
 
     image_dir = os.path.join(data_dir, "images")
     mask_dir = os.path.join(data_dir, "masks")
-    os.makedirs(image_dir)
-    os.makedirs(mask_dir)
+    os.makedirs(image_dir, exist_ok=True)
+    os.makedirs(mask_dir, exist_ok=True)
 
     tot_count = 0
     for tif_path, mask_path in zip(tif_paths, mask_paths):
         count = np2images(tif_path, mask_path, image_size, stride, data_dir)
         tot_count += count
+
+    print(f"Total count: {tot_count}")
 
     indices = list(range(tot_count))
     random.shuffle(indices)
@@ -74,6 +78,9 @@ def create_datasets(
 
     train_set = CustomDataset(image_dir, mask_dir, train_indices)
     val_set = CustomDataset(image_dir, mask_dir, val_indices)
+    print(
+        f"Dataset created! Train set size: {len(train_set)}, Val set size: {len(val_set)}"
+    )
 
     return (train_set, val_set)
 
@@ -99,7 +106,8 @@ def np2images(
     image_arr = tif2np(tif_path)
     image_dir = os.path.join(save_dir, "images")
 
-    h, w, _ = image_arr.shape
+    _, h, w = image_arr.shape
+    print(f"Image shape: {image_arr.shape}")
 
     count = 0
     if mask_path:
