@@ -82,11 +82,13 @@ def train_model(
 def run_inference(dataset: Dataset, model: nn.Module, save_dir: str):
     dataloader = create_dataloader(dataset, is_train=False)
 
-    for img, path in tqdm(dataloader):
-        img = img.to(device)
+    for imgs, paths in tqdm(dataloader, "Running Inference..."):
+        imgs = imgs.to(device)
 
-        out = model(img.unsqueeze()).squeeze().cpu().numpy()
-        np.save(save_dir, os.path.join(save_dir, os.path.basename(path)), out)
+        out = model(imgs).detach().numpy()
+        for i, path in enumerate(paths):
+            save_path = os.path.join(save_dir, os.path.basename(path))
+            np.save(save_path, out[i])
 
 
 def load_model(model_path: str) -> nn.Module:

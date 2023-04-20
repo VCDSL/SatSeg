@@ -37,9 +37,10 @@ class InferenceDataset(Dataset):
         return len(self.image_paths)
 
     def __getitem__(self, index):
-        image = np.load(self.image_paths[index]).transpose(1, 2, 0)
+        path = self.image_paths[index]
+        image = np.load(path).transpose(1, 2, 0)
 
-        return TF.to_tensor(image).float(), self.image_paths[index]
+        return TF.to_tensor(image).float(), path
 
 
 def create_datasets(
@@ -87,7 +88,7 @@ def create_datasets(
 
 def create_inference_dataset(tif_paths: List[str], data_dir: str, image_size: int):
     image_dir = os.path.join(data_dir, "images")
-    os.makedirs(image_dir)
+    os.makedirs(image_dir, exist_ok=True)
 
     for tif_path in tif_paths:
         np2images(tif_path, None, image_size, image_size, data_dir)
