@@ -69,12 +69,13 @@ def get_grid_score(
 
     max_score = 0
     best_start = tuple()
-    for s_1 in np.arange(0, side_len, 2):
-        for s_2 in np.arange(0, side_len, 2):
+    best_indices = None
+    for s_1 in np.arange(0, side_len, side_len // 5):
+        for s_2 in np.arange(0, side_len, side_len // 5):
             indices_new = indices + np.array([s_1, s_2])
             indices_new = indices_new[
                 np.logical_and(indices_new[:, 0] < h, indices_new[:, 1] < w)
-            ]
+            ].astype(int)
 
             result = np.zeros((h, w))
             result[indices_new[:, 0], indices_new[:, 1]] = seg_result[
@@ -85,15 +86,13 @@ def get_grid_score(
             if score > max_score:
                 max_score = score
                 best_start = (s_1, s_2)
+                x, y = np.where(result > threshold)
+                best_indices = np.array([x, y]).T
 
-    # plt.imshow(grid)
-    # plt.show()
-    # plt.imshow(result)
-    # plt.show()
-    return max_score, best_start
+    return max_score, best_start, np.array([best_indices[:, 1], best_indices[:, 0]]).T
 
 
-def make_gaussian(size, fwhm=10, center=None):
+def _make_gaussian(size, fwhm=10, center=None):
     x = np.arange(0, size, 1, float)
     y = x[:, np.newaxis]
 
@@ -106,25 +105,28 @@ def make_gaussian(size, fwhm=10, center=None):
     return np.exp(-4 * np.log(2) * ((x - x0) ** 6 + (y - y0) ** 6) / fwhm**5)
 
 
-def main():
-    mask = make_gaussian(10000, 5000)
-
+def get_optimal_grid(mask: np.ndarray, side_len: float, display_progress: bool = False):
     angle_range = (0, degrees_to_radians(60))
     angle_res = degrees_to_radians(10)
-    side_len_range = (5, 6)
-
-    # get_grid_score(0.5235987755982988, 10, (6, 2), mask, 0.8)
 
     max_score = 0
     max_config = tuple()
-    for angle in tqdm(np.arange(angle_range[0], angle_range[1], angle_res)):
-        for side_len in np.arange(side_len_range[0], side_len_range[1], 1):
-            score, start = get_grid_score(angle, side_len, mask, 0.8)
-            if score > max_score:
-                max_score = score
-                max_config = (angle, side_len, start)
+    best_indices = None
+    for angle in tqdm(
+        np.arange(angle_range[0], angle_range[1], angle_res), disable=True
+    ):
+        score, start, indices = get_grid_score(angle, side_len, mask, 0.8)
+        if score > max_score:
+            max_score = score
+            max_config = (angle, side_len, start)
+            best_indices = indices
 
-    print(max_config, max_score)
+    return best_indices, max_config
+
+
+def main():
+    mask = _make_gaussian(10000, 5000)
+    get_optimal_grid(mask, 100)
 
 
 if __name__ == "__main__":
