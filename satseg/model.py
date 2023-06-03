@@ -1,6 +1,6 @@
 import os
 from tqdm import tqdm
-from typing import Optional
+from typing import Optional, Tuple
 
 import numpy as np
 import segmentation_models_pytorch as smp
@@ -41,7 +41,7 @@ def create_new_model(
 
 def train_model(
     train_set: Dataset, val_set: Dataset, arch: str, epochs: int = 10
-) -> nn.Module:
+) -> Tuple[nn.Module, dict]:
     dataloaders = {
         "train": create_dataloader(train_set, True),
         "val": create_dataloader(val_set, False),
