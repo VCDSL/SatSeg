@@ -100,10 +100,3 @@ def load_model(model_path: str) -> nn.Module:
 
 def save_model(model: nn.Module, model_path: str):
     torch.save(model, model_path)
-
-
-def update_model_data(
-    model_data_path: str, model_name: str, arch: str, model_path: str
-):
-    with open(model_data_path, "a") as fp:
-        fp.write(f"{model_name}, {arch}, {model_path}\n")
