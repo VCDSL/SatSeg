@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "satseg"
 version = "0.1.0"
-description = ""
+description = "A python package to assist in multispectral satellite image segmentation."
 authors = ["Dilith Jayakody <dilithjay@gmail.com>"]
 readme = "README.md"
 
