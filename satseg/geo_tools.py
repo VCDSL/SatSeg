@@ -135,7 +135,7 @@ def shapefile_to_grid_indices(
     for poly in c:
         coords = poly["geometry"].coordinates
         for coord_set in tqdm(coords):
-            contour = np.array(coord_set[0] if len(coord_set) == 1 else coord_set)
+            contour = np.array(coord_set[0] if len(coord_set) < 3 else coord_set)
 
             cmin = contour.min(axis=0)
             contour -= cmin
