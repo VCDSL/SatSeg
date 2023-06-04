@@ -77,6 +77,12 @@ def tif2np(tif_path: str) -> np.ndarray:
     return ds.read().astype(np.int16)
 
 
+def get_tif_n_channels(tif_path: str) -> np.ndarray:
+    with rasterio.open(tif_path) as f:
+        profile = f.profile
+    return profile["count"]
+
+
 def get_tif_bounds(tif_path: str, target_crs: int = None):
     ds = rasterio.open(tif_path)
     bounds = ds.bounds
