@@ -18,7 +18,8 @@ def create_new_model(
     channels: int,
     weights: Optional[ResNet50_Weights] = ResNet50_Weights.SENTINEL2_ALL_MOCO,
 ) -> nn.Module:
-    if arch.lower() == "unet":
+    arch = arch.lower()
+    if arch == "unet":
         model = smp.Unet(encoder_name="resnet50", in_channels=channels, classes=1)
 
         if weights:
@@ -47,12 +48,14 @@ def train_model(
         "val": create_dataloader(val_set, False),
     }
 
+    if arch.lower() == "best":
+        arch = "dcama" if len(train_set) < 10 else "unet"
     model = create_new_model(arch, val_set[0][0].shape[0])
 
     optimizer = optim.Adam(model.parameters())
     criterion = nn.BCELoss()
 
-    metrics = {"train": {"loss": [], "iou": []}, "val": {"loss": [], "iou": []}}
+    metrics = {phase: {"loss": [], "iou": []} for phase in ("train", "val")}
 
     print("Training started...")
     for ep in range(epochs):
@@ -79,6 +82,7 @@ def train_model(
     return model, metrics
 
 
+@torch.no_grad()
 def run_inference(dataset: Dataset, model: nn.Module, save_dir: str):
     dataloader = create_dataloader(dataset, is_train=False)
 
@@ -88,7 +92,7 @@ def run_inference(dataset: Dataset, model: nn.Module, save_dir: str):
         out = model(imgs).detach().numpy()
         for i, path in enumerate(paths):
             save_path = os.path.join(save_dir, os.path.basename(path))
-            np.save(save_path, out[i])
+            np.save(save_path, (out[i] > 0.5).squeeze().astype(np.uint8))
 
 
 def load_model(model_path: str) -> nn.Module:

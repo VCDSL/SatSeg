@@ -17,12 +17,16 @@ class CustomDataset(Dataset):
         self.mask_paths = sorted(glob(os.path.join(mask_dir, "*.npy")))
         self.indices = indices
 
+        self.n_channels = float("inf")
+        for path in self.image_paths:
+            self.n_channels = min(self.n_channels, np.load(path).shape[0])
+
     def __len__(self):
         return len(self.indices)
 
     def __getitem__(self, idx):
         index = self.indices[idx]
-        image = np.load(self.image_paths[index]).transpose(1, 2, 0)
+        image = np.load(self.image_paths[index])[: self.n_channels].transpose(1, 2, 0)
         mask = np.load(self.mask_paths[index])
 
         return TF.to_tensor(image).float(), TF.to_tensor(mask).float()

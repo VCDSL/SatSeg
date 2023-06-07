@@ -183,9 +183,9 @@ def points_to_shapefile(points: np.ndarray, file_path: str):
         crs="EPSG:4326",
     )
     # iterate over each row in the dataframe and save record
-    for i, (x, y) in enumerate(points):
+    for i, point in enumerate(points):
         rowDict = {
-            "geometry": {"type": "Point", "coordinates": (x, y)},
+            "geometry": {"type": "Point", "coordinates": point},
             "properties": {"ID": i},
         }
         pointShp.write(rowDict)
