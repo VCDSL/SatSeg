@@ -95,6 +95,15 @@ def get_tif_bounds(tif_path: str, target_crs: int = None):
     return bounds
 
 
+def get_tif_data(tif_path: str):
+    ds = rasterio.open(tif_path)
+    crs_bounds = ds.bounds
+    crs = ds.crs
+    # px_bounds = ds.read(1).shape
+
+    return {"crs_bounds": crs_bounds, "px_bounds": (10980, 10980), "crs": crs}
+
+
 def pixel_to_crs(pixel_coords: np.ndarray, pixel_bounds: tuple, crs_bounds: tuple):
     """Convert coordinates from pixel domain to CRS domain
 
@@ -107,6 +116,8 @@ def pixel_to_crs(pixel_coords: np.ndarray, pixel_bounds: tuple, crs_bounds: tupl
 
     x = x / pixel_bounds[0] * (crs_bounds[2] - crs_bounds[0]) + crs_bounds[0]
     y = (1 - y / pixel_bounds[1]) * (crs_bounds[3] - crs_bounds[1]) + crs_bounds[1]
+
+    return np.concatenate([x[:, None], y[:, None]], axis=1)
 
 
 def shapefile_to_latlong(file_path: str):
@@ -141,7 +152,9 @@ def shapefile_to_grid_indices(
     for poly in c:
         coords = poly["geometry"].coordinates
         for coord_set in tqdm(coords):
-            contour = np.array(coord_set[0] if len(coord_set) < 3 else coord_set)
+            contour = (
+                np.array(coord_set[0]) if len(coord_set) < 3 else np.array(coord_set)
+            )
 
             cmin = contour.min(axis=0)
             contour -= cmin
@@ -190,6 +203,42 @@ def points_to_shapefile(points: np.ndarray, file_path: str):
         }
         pointShp.write(rowDict)
     # close fiona object
+    pointShp.close()
+
+
+def contours_to_shapefile(
+    contours, hierarchy: np.ndarray, tif_path: str, file_path: str, min_area: int = 100
+):
+    if hierarchy is None:
+        return
+
+    tif_data = get_tif_data(tif_path)
+
+    schema = {"geometry": "Polygon", "properties": [("ID", "int")]}
+    pointShp = fiona.open(
+        file_path,
+        mode="w",
+        driver="ESRI Shapefile",
+        schema=schema,
+        crs="EPSG:32644",
+    )
+
+    hierarchy = hierarchy.squeeze()
+
+    for i, cnt in enumerate(contours):
+        if hierarchy[i][3] == -1 and cv2.contourArea(cnt) >= min_area:
+            crs_cnt = pixel_to_crs(
+                cnt[:, 0, :],
+                pixel_bounds=tif_data["px_bounds"],
+                crs_bounds=tif_data["crs_bounds"],
+            )
+
+            rowDict = {
+                "geometry": {"type": "Polygon", "coordinates": [crs_cnt]},
+                "properties": {"ID": i},
+            }
+            pointShp.write(rowDict)
+
     pointShp.close()
 
 

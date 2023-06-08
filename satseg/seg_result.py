@@ -20,14 +20,14 @@ def combine_seg_maps(result_dir: str, save_dir: str):
         np.save(os.path.join(save_dir, f"{tif_name}_mask.npy"), out_np.astype(np.uint8))
 
 
-def get_combined_map_contours(comb_dir: str):
-    mask_paths = glob(os.path.join(comb_dir, "*_mask.npy"))
+def get_combined_map_contours(comb_mask_dir: str):
+    mask_paths = glob(os.path.join(comb_mask_dir, "*_mask.npy"))
     result_contours = {}
     for path in mask_paths:
         tif_name = os.path.basename(path).split("_")[0]
         mask = np.load(path)
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-        result_contours[tif_name] = contours
+        c_out = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        result_contours[tif_name] = c_out
 
     return result_contours
 
