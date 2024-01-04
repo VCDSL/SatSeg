@@ -10,12 +10,38 @@ from torch.utils.data import Dataset, DataLoader
 from satseg.geo_tools import generate_mask, tif2np
 
 
+def eval_expression(exp: list, image: np.ndarray = None):
+    expression = ""
+
+    for token in exp:
+        if token[0] == "c":
+            channel = eval(token[1:])
+            expression += f"(image[{channel}] + 0.0001)"  # To prevent divide by zero
+        elif token == "sq":
+            expression += "**2"
+        elif token == "sqrt":
+            expression += "**0.5"
+        elif token == "=":
+            break
+        else:
+            expression += token
+
+    return eval(expression)
+
+
 class CustomDataset(Dataset):
-    def __init__(self, image_dir: str, mask_dir: str, indices: List[int]):
+    def __init__(
+        self,
+        image_dir: str,
+        mask_dir: str,
+        indices: List[int],
+        expression: List[str] = [],
+    ):
         super().__init__()
         self.image_paths = sorted(glob(os.path.join(image_dir, "*.npy")))
         self.mask_paths = sorted(glob(os.path.join(mask_dir, "*.npy")))
         self.indices = indices
+        self.expression = expression
 
         self.n_channels = float("inf")
         for path in self.image_paths:
@@ -27,15 +53,22 @@ class CustomDataset(Dataset):
     def __getitem__(self, idx):
         index = self.indices[idx]
         image = np.load(self.image_paths[index])[: self.n_channels].transpose(1, 2, 0)
+        if self.expression:
+            idx_img = eval_expression(self.expression, image)
+            max_z = 3
+            idx_img = (idx_img - idx_img.mean()) / idx_img.std()
+            idx_img = (np.clip(idx_img, -max_z, max_z) + max_z) / (2 * max_z)
+            image = np.concatenate([image, idx_img[None, :, :]], axis=0)
         mask = np.load(self.mask_paths[index])
 
         return TF.to_tensor(image).float(), TF.to_tensor(mask).float()
 
 
 class InferenceDataset(Dataset):
-    def __init__(self, image_dir: str):
+    def __init__(self, image_dir: str, expression: List[str] = []):
         super().__init__()
         self.image_paths = sorted(glob(os.path.join(image_dir, "*.npy")))
+        self.expression = expression
 
     def __len__(self):
         return len(self.image_paths)
@@ -43,6 +76,12 @@ class InferenceDataset(Dataset):
     def __getitem__(self, index):
         path = self.image_paths[index]
         image = np.load(path).transpose(1, 2, 0)
+        if self.expression:
+            idx_img = eval_expression(self.expression, image)
+            max_z = 3
+            idx_img = (idx_img - idx_img.mean()) / idx_img.std()
+            idx_img = (np.clip(idx_img, -max_z, max_z) + max_z) / (2 * max_z)
+            image = np.concatenate([image, idx_img[None, :, :]], axis=0)
 
         return TF.to_tensor(image).float(), path
 
@@ -54,6 +93,7 @@ def create_datasets(
     image_size: int = 256,
     stride: int = None,
     train_pct: int = None,
+    expression: List[str] = [],
 ) -> Tuple[CustomDataset, CustomDataset]:
     print("Creating dataset...")
     assert len(tif_paths) == len(mask_paths)
@@ -81,8 +121,8 @@ def create_datasets(
     train_size = int(tot_count * train_pct / 100)
     train_indices, val_indices = indices[:train_size], indices[train_size:]
 
-    train_set = CustomDataset(image_dir, mask_dir, train_indices)
-    val_set = CustomDataset(image_dir, mask_dir, val_indices)
+    train_set = CustomDataset(image_dir, mask_dir, train_indices, expression)
+    val_set = CustomDataset(image_dir, mask_dir, val_indices, expression)
     print(
         f"Dataset created! Train set size: {len(train_set)}, Val set size: {len(val_set)}"
     )
@@ -90,14 +130,16 @@ def create_datasets(
     return (train_set, val_set)
 
 
-def create_inference_dataset(tif_paths: List[str], data_dir: str, image_size: int):
+def create_inference_dataset(
+    tif_paths: List[str], data_dir: str, image_size: int, expression: List[str] = []
+):
     image_dir = os.path.join(data_dir, "images")
     os.makedirs(image_dir, exist_ok=True)
 
     for tif_path in tif_paths:
         np2images(tif_path, None, image_size, image_size, data_dir)
 
-    return InferenceDataset(image_dir)
+    return InferenceDataset(image_dir, expression)
 
 
 def np2images(
