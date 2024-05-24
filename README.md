@@ -1,6 +1,8 @@
 # SatSeg (WIP)
 A python package to assist in multispectral satellite image segmentation.
 
+[https://huggingface.co/spaces/dilithjay/SatSeg/tree/main ](SatSeg App deployed in HuggingFace Spaces)
+
 ## Installation
 ```
 pip install satseg
